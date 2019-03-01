@@ -1,0 +1,12 @@
+# log_file=/Users/fuyu08/github/nmt/nmt/nmt_model/log_1551431653
+# Start step 0, lr 1, Fri Mar  1 17:15:09 2019
+  step 100 lr 1 step-time 1.78s wps 3.14K ppl 2342.06 gN 20.06 bleu 0.00, Fri Mar  1 17:18:08 2019
+  step 200 lr 1 step-time 1.86s wps 3.05K ppl 587.03 gN 7.07 bleu 0.00, Fri Mar  1 17:21:14 2019
+  step 300 lr 1 step-time 1.64s wps 3.45K ppl 412.56 gN 5.45 bleu 0.00, Fri Mar  1 17:23:58 2019
+  step 400 lr 1 step-time 1.39s wps 3.99K ppl 297.56 gN 4.52 bleu 0.00, Fri Mar  1 17:26:17 2019
+  step 500 lr 1 step-time 1.45s wps 3.91K ppl 231.07 gN 3.90 bleu 0.00, Fri Mar  1 17:28:42 2019
+  step 600 lr 1 step-time 1.36s wps 4.11K ppl 197.26 gN 3.24 bleu 0.00, Fri Mar  1 17:30:59 2019
+  step 700 lr 1 step-time 1.46s wps 3.82K ppl 177.30 gN 2.97 bleu 0.00, Fri Mar  1 17:33:24 2019
+  step 800 lr 1 step-time 1.41s wps 3.98K ppl 166.37 gN 2.86 bleu 0.00, Fri Mar  1 17:35:45 2019
+  step 900 lr 1 step-time 1.45s wps 3.87K ppl 157.52 gN 3.04 bleu 0.00, Fri Mar  1 17:38:11 2019
+  step 1000 lr 1 step-time 1.47s wps 3.79K ppl 145.87 gN 2.95 bleu 0.00, Fri Mar  1 17:40:38 2019

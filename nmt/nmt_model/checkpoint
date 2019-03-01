@@ -1,0 +1,2 @@
+model_checkpoint_path: "/Users/fuyu08/github/nmt/nmt/nmt_model/translate.ckpt-1000"
+all_model_checkpoint_paths: "/Users/fuyu08/github/nmt/nmt/nmt_model/translate.ckpt-1000"

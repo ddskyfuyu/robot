@@ -202,7 +202,7 @@ class BaseModel(object):
 
             # Gradients
             gradients = tf.gradients(self.train_loss, params,
-                                 colocate_gradients_with_ops=hparams.colocate_gradients_with_ops)
+                                     colocate_gradients_with_ops=hparams.colocate_gradients_with_ops)
 
             clipped_grads, grad_norm_summary, grad_norm = model_helper.gradient_clip(gradients, 
                                                       max_gradient_norm=hparams.max_gradient_norm)
@@ -352,15 +352,14 @@ class BaseModel(object):
             ValueError: if encoder_type differs from mono and bi, or
             attention_option is not (luong | scaled_luong | bahdanau | normed_bahdanau).
         """
-
         utils.print_out("# Creating %s graph ..." % self.mode)
         # Projection
         if not self.extract_encoder_layers:
             with tf.variable_scope(scope or "build_network"):
                 with tf.variable_scope("decoder/output_projection"):
                     self.output_layer = tf.layers.Dense(self.tgt_vocab_size, 
-                                                        use_bias=False, 
-                                                        name="output_projection")
+                                                     use_bias=False)
+                                                     #name = "output_projection")
 
         with tf.variable_scope(scope or "dynamic_seq2seq", dtype=self.dtype):
             # Encoder
@@ -440,6 +439,7 @@ class BaseModel(object):
             A tuple of final logits and final decoder state:
             logits: size [time, batch_size, vocab_size] when time_major=True.
         """
+
         tgt_sos_id = tf.cast(self.tgt_vocab_table.lookup(tf.constant(hparams.sos)), tf.int32)
         tgt_eos_id = tf.cast(self.tgt_vocab_table.lookup(tf.constant(hparams.eos)), tf.int32)
         iterator = self.iterator
@@ -449,74 +449,75 @@ class BaseModel(object):
 
         ## Decoder.
         with tf.variable_scope("decoder") as decoder_scope:
-            cell, decoder_initial_state = self._build_decoder_cell(hparams, encoder_outputs, encoder_state,
+            cell, decoder_initial_state = self._build_decoder_cell(hparams, 
+                                                                   encoder_outputs, 
+                                                                   encoder_state,
                                                                    iterator.source_sequence_length)
 
-        # Optional ops depends on which mode we are in and which loss function we
-        # are using.
-        logits = tf.no_op()
-        decoder_cell_outputs = None
+            # Optional ops depends on which mode we are in and which loss function we
+            # are using.
+            logits = tf.no_op()
+            decoder_cell_outputs = None
 
-        ## Train or eval
-        if self.mode != tf.contrib.learn.ModeKeys.INFER:
-            # decoder_emp_inp: [max_time, batch_size, num_units]
-            target_input = iterator.target_input
-            if self.time_major:
-                target_input = tf.transpose(target_input)
-            decoder_emb_inp = tf.nn.embedding_lookup(self.embedding_decoder, target_input)
+            ## Train or eval
+            if self.mode != tf.contrib.learn.ModeKeys.INFER:
+                # decoder_emp_inp: [max_time, batch_size, num_units]
+                target_input = iterator.target_input
+                if self.time_major:
+                    target_input = tf.transpose(target_input)
+                decoder_emb_inp = tf.nn.embedding_lookup(self.embedding_decoder, target_input)
 
-            # Helper
-            helper = tf.contrib.seq2seq.TrainingHelper(decoder_emb_inp, iterator.target_sequence_length,
-                                                      time_major=self.time_major)
+                # Helper
+                helper = tf.contrib.seq2seq.TrainingHelper(decoder_emb_inp, 
+                                                           iterator.target_sequence_length,
+                                                           time_major=self.time_major)
 
-            # Decoder
-            my_decoder = tf.contrib.seq2seq.BasicDecoder(cell, helper, decoder_initial_state,)
+                # Decoder
+                my_decoder = tf.contrib.seq2seq.BasicDecoder(cell, helper, decoder_initial_state,)
 
-            # Dynamic decoding
-            outputs, final_context_state, _ = tf.contrib.seq2seq.dynamic_decode(my_decoder,
-                                                                            output_time_major=self.time_major,
-                                                                            swap_memory=True,
-                                                                            scope=decoder_scope)
+                # Dynamic decoding
+                outputs, final_context_state, _ = tf.contrib.seq2seq.dynamic_decode(my_decoder,
+                                                                                    output_time_major=self.time_major,
+                                                                                    swap_memory=True,
+                                                                                    scope=decoder_scope)
 
-            sample_id = outputs.sample_id
+                sample_id = outputs.sample_id
 
-            if self.num_sampled_softmax > 0:
-                # Note: this is required when using sampled_softmax_loss.
-                decoder_cell_outputs = outputs.rnn_output
+                if self.num_sampled_softmax > 0:
+                    # Note: this is required when using sampled_softmax_loss.
+                    decoder_cell_outputs = outputs.rnn_output
 
-            # Note: there's a subtle difference here between train and inference.
-            # We could have set output_layer when create my_decoder
-            #   and shared more code between train and inference.
-            # We chose to apply the output_layer to all timesteps for speed:
-            #   10% improvements for small models & 20% for larger ones.
-            # If memory is a concern, we should apply output_layer per timestep.
-            num_layers = self.num_decoder_layers
-            num_gpus = self.num_gpus
-            device_id = num_layers if num_layers < num_gpus else (num_layers - 1)
-            # Colocate output layer with the last RNN cell if there is no extra GPU
-            # available. Otherwise, put last layer on a separate GPU.
-            with tf.device(model_helper.get_device_str(device_id, num_gpus)):
-                logits = self.output_layer(outputs.rnn_output)
+                # Note: there's a subtle difference here between train and inference.
+                # We could have set output_layer when create my_decoder
+                #   and shared more code between train and inference.
+                # We chose to apply the output_layer to all timesteps for speed:
+                #   10% improvements for small models & 20% for larger ones.
+                # If memory is a concern, we should apply output_layer per timestep.
+                num_layers = self.num_decoder_layers
+                num_gpus = self.num_gpus
+                device_id = num_layers if num_layers < num_gpus else (num_layers - 1)
+                # Colocate output layer with the last RNN cell if there is no extra GPU
+                # available. Otherwise, put last layer on a separate GPU.
+                with tf.device(model_helper.get_device_str(device_id, num_gpus)):
+                    logits = self.output_layer(outputs.rnn_output)
 
-            if self.num_sampled_softmax > 0:
-                logits = tf.no_op()  # unused when using sampled softmax loss.
+                if self.num_sampled_softmax > 0:
+                    logits = tf.no_op()  # unused when using sampled softmax loss.
 
-        ## Inference
-        else:
-            infer_mode = hparams.infer_mode
-            start_tokens = tf.fill([self.batch_size], tgt_sos_id)
-            end_token = tgt_eos_id
-            utils.print_out("  decoder: infer_mode=%sbeam_width=%d, "
-                            "length_penalty=%f, coverage_penalty=%f"
-                            % (infer_mode, hparams.beam_width, hparams.length_penalty_weight,
-                               hparams.coverage_penalty_weight))
+            ## Inference
+            else:
+                infer_mode = hparams.infer_mode
+                start_tokens = tf.fill([self.batch_size], tgt_sos_id)
+                end_token = tgt_eos_id
+                utils.print_out("decoder: infer_mode=%s, beam_width=%d, length_penalty=%f, coverage_penalty=%f"
+                            % (infer_mode, hparams.beam_width, hparams.length_penalty_weight, hparams.coverage_penalty_weight))
 
-            if infer_mode == "beam_search":
-                beam_width = hparams.beam_width
-                length_penalty_weight = hparams.length_penalty_weight
-                coverage_penalty_weight = hparams.coverage_penalty_weight
+                if infer_mode == "beam_search":
+                    beam_width = hparams.beam_width
+                    length_penalty_weight = hparams.length_penalty_weight
+                    coverage_penalty_weight = hparams.coverage_penalty_weight
 
-                my_decoder = tf.contrib.seq2seq.BeamSearchDecoder(cell=cell,
+                    my_decoder = tf.contrib.seq2seq.BeamSearchDecoder(cell=cell,
                                                                   embedding=self.embedding_decoder,
                                                                   start_tokens=start_tokens,
                                                                   end_token=end_token,
@@ -525,36 +526,36 @@ class BaseModel(object):
                                                                   output_layer=self.output_layer,
                                                                   length_penalty_weight=length_penalty_weight,
                                                                   coverage_penalty_weight=coverage_penalty_weight)
-            elif infer_mode == "sample":
-                # Helper
-                sampling_temperature = hparams.sampling_temperature
-                assert sampling_temperature > 0.0, ("sampling_temperature must greater than 0.0 when using sample decoder.")
-                helper = tf.contrib.seq2seq.SampleEmbeddingHelper(self.embedding_decoder, 
-                                                                  start_tokens, end_token,
-                                                                  softmax_temperature=sampling_temperature,
-                                                                  seed=self.random_seed)
-            elif infer_mode == "greedy":
-                helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.embedding_decoder, start_tokens, end_token)
-            else:
-                raise ValueError("Unknown infer_mode '%s'", infer_mode)
+                elif infer_mode == "sample":
+                    # Helper
+                    sampling_temperature = hparams.sampling_temperature
+                    assert sampling_temperature > 0.0, ("sampling_temperature must greater than 0.0 when using sample decoder.")
+                    helper = tf.contrib.seq2seq.SampleEmbeddingHelper(self.embedding_decoder, 
+                                                                      start_tokens, end_token,
+                                                                      softmax_temperature=sampling_temperature,
+                                                                      seed=self.random_seed)
+                elif infer_mode == "greedy":
+                    helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(self.embedding_decoder, start_tokens, end_token)
+                else:
+                    raise ValueError("Unknown infer_mode '%s'", infer_mode)
 
-            if infer_mode != "beam_search":
-                my_decoder = tf.contrib.seq2seq.BasicDecoder(cell, helper,
+                if infer_mode != "beam_search":
+                    my_decoder = tf.contrib.seq2seq.BasicDecoder(cell, helper,
                                                              decoder_initial_state,
                                                              output_layer=self.output_layer)
 
-            # Dynamic decoding
-            outputs, final_context_state, _ = tf.contrib.seq2seq.dynamic_decode(my_decoder,
+                # Dynamic decoding
+                outputs, final_context_state, _ = tf.contrib.seq2seq.dynamic_decode(my_decoder,
                                                                                 maximum_iterations=maximum_iterations,
                                                                                 output_time_major=self.time_major,
                                                                                 swap_memory=True,
                                                                                 scope=decoder_scope)
 
-            if infer_mode == "beam_search":
-                sample_id = outputs.predicted_ids
-            else:
-                logits = outputs.rnn_output
-                sample_id = outputs.sample_id
+                if infer_mode == "beam_search":
+                    sample_id = outputs.predicted_ids
+                else:
+                    logits = outputs.rnn_output
+                    sample_id = outputs.sample_id
 
         return logits, decoder_cell_outputs, sample_id, final_context_state
 
@@ -701,7 +702,8 @@ class Model(BaseModel):
 
             # Encoder_outputs: [max_time, batch_size, num_units]
             if hparams.encoder_type == "uni":
-                utils.print_out("  num_layers = %d, num_residual_layers=%d" %(num_layers, num_residual_layers))
+                utils.print_out("  num_layers = %d, num_residual_layers=%d" %(num_layers, 
+                                                                             num_residual_layers))
                 cell = self._build_encoder_cell(hparams, num_layers, num_residual_layers)
                 encoder_outputs, encoder_state = tf.nn.dynamic_rnn(cell, self.encoder_emb_inp, dtype=dtype,
                                                                    sequence_length=sequence_length,

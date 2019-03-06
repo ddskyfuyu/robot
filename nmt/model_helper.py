@@ -22,7 +22,6 @@ import os
 import time
 import numpy as np
 import six
-import pdb
 import tensorflow as tf
 
 from tensorflow.python.ops import lookup_ops
@@ -178,48 +177,38 @@ class InferModel(
     collections.namedtuple("InferModel",
                            ("graph", "model", "src_placeholder",
                             "batch_size_placeholder", "iterator"))):
-  pass
+    pass
 
 
 def create_infer_model(model_creator, hparams, scope=None, extra_args=None):
-  """Create inference model."""
-  graph = tf.Graph()
-  src_vocab_file = hparams.src_vocab_file
-  tgt_vocab_file = hparams.tgt_vocab_file
+    """Create inference model."""
+    graph = tf.Graph()
+    src_vocab_file = hparams.src_vocab_file
+    tgt_vocab_file = hparams.tgt_vocab_file
 
-  with graph.as_default(), tf.container(scope or "infer"):
-    src_vocab_table, tgt_vocab_table = vocab_utils.create_vocab_tables(
-        src_vocab_file, tgt_vocab_file, hparams.share_vocab)
-    reverse_tgt_vocab_table = lookup_ops.index_to_string_table_from_file(
-        tgt_vocab_file, default_value=vocab_utils.UNK)
+    with graph.as_default(), tf.container(scope or "infer"):
+        src_vocab_table, tgt_vocab_table = vocab_utils.create_vocab_tables(src_vocab_file, tgt_vocab_file, hparams.share_vocab)
+        reverse_tgt_vocab_table = lookup_ops.index_to_string_table_from_file(tgt_vocab_file, default_value=vocab_utils.UNK)
 
-    src_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
-    batch_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
+        src_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
+        batch_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
 
-    src_dataset = tf.data.Dataset.from_tensor_slices(
-        src_placeholder)
-    iterator = iterator_utils.get_infer_iterator(
-        src_dataset,
-        src_vocab_table,
-        batch_size=batch_size_placeholder,
-        eos=hparams.eos,
-        src_max_len=hparams.src_max_len_infer,
-        use_char_encode=hparams.use_char_encode)
-    model = model_creator(
-        hparams,
-        iterator=iterator,
-        mode=tf.contrib.learn.ModeKeys.INFER,
-        source_vocab_table=src_vocab_table,
-        target_vocab_table=tgt_vocab_table,
-        reverse_target_vocab_table=reverse_tgt_vocab_table,
-        scope=scope,
-        extra_args=extra_args)
-  return InferModel(
-      graph=graph,
-      model=model,
-      src_placeholder=src_placeholder,
-      batch_size_placeholder=batch_size_placeholder,
-      iterator=iterator)
+        src_dataset = tf.data.Dataset.from_tensor_slices(src_placeholder)
+        iterator = iterator_utils.get_infer_iterator(src_dataset, src_vocab_table,
+                                                     batch_size=batch_size_placeholder,
+                                                     eos=hparams.eos,
+                                                     src_max_len=hparams.src_max_len_infer,
+                                                     use_char_encode=hparams.use_char_encode)
+        model = model_creator(hparams, iterator=iterator, mode=tf.contrib.learn.ModeKeys.INFER,
+                              source_vocab_table=src_vocab_table,
+                              target_vocab_table=tgt_vocab_table,
+                              reverse_target_vocab_table=reverse_tgt_vocab_table,
+                              scope=scope,
+                              extra_args=extra_args)
+    return InferModel(graph=graph, model=model,
+                      src_placeholder=src_placeholder,
+                      batch_size_placeholder=batch_size_placeholder,
+                      iterator=iterator)
 
 
 def _get_embed_device(vocab_size):
@@ -357,7 +346,6 @@ def _single_cell(unit_type, num_units, forget_bias, dropout, mode,
     """Create an instance of a single RNN cell."""
     # dropout (= 1 - keep_prob) is set to 0 during eval and infer
     dropout = dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
-
     # Cell Type
     if unit_type == "lstm":
         utils.print_out("  LSTM, forget_bias=%g" % forget_bias, new_line=False)
@@ -446,10 +434,10 @@ def create_rnn_cell(unit_type, num_units, num_layers, num_residual_layers,
             An `RNNCell` instance.
     """
     cell_list = _cell_list(unit_type=unit_type, num_units=num_units,
-                         num_layers=num_layers, num_residual_layers=num_residual_layers,
-                         forget_bias=forget_bias, dropout=dropout,
-                         mode=mode, num_gpus=num_gpus,
-                         base_gpu=base_gpu, single_cell_fn=single_cell_fn)
+                           num_layers=num_layers, num_residual_layers=num_residual_layers,
+                           forget_bias=forget_bias, dropout=dropout,
+                           mode=mode, num_gpus=num_gpus,
+                           base_gpu=base_gpu, single_cell_fn=single_cell_fn)
 
     if len(cell_list) == 1:  # Single layer.
         return cell_list[0]
@@ -469,12 +457,12 @@ def gradient_clip(gradients, max_gradient_norm):
 
 
 def print_variables_in_ckpt(ckpt_path):
-  """Print a list of variables in a checkpoint together with their shapes."""
-  utils.print_out("# Variables in ckpt %s" % ckpt_path)
-  reader = tf.train.NewCheckpointReader(ckpt_path)
-  variable_map = reader.get_variable_to_shape_map()
-  for key in sorted(variable_map.keys()):
-    utils.print_out("  %s: %s" % (key, variable_map[key]))
+    """Print a list of variables in a checkpoint together with their shapes."""
+    utils.print_out("# Variables in ckpt %s" % ckpt_path)
+    reader = tf.train.NewCheckpointReader(ckpt_path)
+    variable_map = reader.get_variable_to_shape_map()
+    for key in sorted(variable_map.keys()):
+        utils.print_out("  %s: %s" % (key, variable_map[key]))
 
 
 def load_model(model, ckpt_path, session, name):
@@ -569,7 +557,6 @@ def avg_checkpoints(model_dir, num_last_checkpoints, global_step,
 
 def create_or_load_model(model, model_dir, session, name):
     """Create translation model and initialize or load parameters in session."""
-    pdb.set_trace()
     latest_ckpt = tf.train.latest_checkpoint(model_dir)
     if latest_ckpt:
         model = load_model(model, latest_ckpt, session, name)

@@ -20,7 +20,6 @@ import math
 import os
 import random
 import time
-import pdb
 
 import tensorflow as tf
 
@@ -335,7 +334,6 @@ def run_full_eval(model_dir,
         Triple containing results summary, global step Tensorflow Variable and
         metrics in this order.
     """
-    pdb.set_trace()
     run_sample_decode(infer_model, infer_sess, model_dir, hparams, summary_writer,
                       sample_src_data, sample_tgt_data)
     return run_internal_and_external_eval(model_dir, infer_model, infer_sess,
@@ -483,7 +481,6 @@ def train(hparams, scope=None, target_session=""):
     eval_sess = tf.Session(target=target_session, config=config_proto, graph=eval_model.graph)
     infer_sess = tf.Session(target=target_session, config=config_proto, graph=infer_model.graph)
     
-    pdb.set_trace()
     with train_model.graph.as_default():
         loaded_train_model, global_step = model_helper.create_or_load_model(train_model.model, 
                                                                 model_dir, train_sess, "train")
